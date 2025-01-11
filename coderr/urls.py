@@ -16,7 +16,10 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
+from coderr_auth_app.api.views import RegistrationView, LoginView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('api/login/', LoginView.as_view(), name='login'),
+    path('api/registration/', RegistrationView.as_view(), name='registration'),
 ]
