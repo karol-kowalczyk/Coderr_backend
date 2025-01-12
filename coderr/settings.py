@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'coderr_auth_app',
+    'coderr_app',
     'corsheaders'
 ]
 
@@ -54,6 +55,9 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = 'coderr.urls'
+
+CORS_ALLOW_ALL_ORIGINS = True
+
 
 TEMPLATES = [
     {

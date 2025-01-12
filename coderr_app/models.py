@@ -1,16 +1,16 @@
 from django.db import models
-from django.contrib.auth.models import User
 
-
-class UserProfile(models.Model):
-    ROLE_CHOICES = [
+class User(models.Model):
+    USER_TYPES = (
         ('customer', 'Customer'),
-        ('provider', 'Provider'),
-    ]
-
-    username = models.OneToOneField(User, on_delete=models.CASCADE, related_name='user_profile')
-    email = models.EmailField(models.CharField(max_length=128))
-    role = models.CharField(choices=ROLE_CHOICES)
-
+        ('admin', 'Admin'),
+    )
+    
+    username = models.EmailField(unique=True)
+    email = models.EmailField(unique=True)
+    password = models.CharField(max_length=255)
+    repeated_password = models.CharField(max_length=255)
+    type = models.CharField(max_length=10, choices=USER_TYPES)
+    
     def __str__(self):
-        return self.user.username
+        return self.username
