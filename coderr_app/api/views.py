@@ -112,3 +112,62 @@ class OffersViewSet(viewsets.ModelViewSet):
             max_delivery_time=Subquery(min_delivery_time_subquery)
         )
 
+
+class ReviewsFilter(django_filters.FilterSet):
+
+    business_user_id = django_filters.NumberFilter(field_name='business_user__id')
+    reviewer_id = django_filters.NumberFilter(field_name='customer_user__id')
+
+    class Meta:
+        model = Reviews
+        fields = ['business_user_id', 'reviewer_id']
+
+
+class ReviewsViewSet(viewsets.ModelViewSet):
+
+    permission_classes = [IsReviewerOrAdminPermission]
+    serializer_class = ReviewsSerializer
+    queryset = Reviews.objects.all()
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
+    filterset_class = ReviewsFilter
+    ordering_fields = ['updated_at', 'rating']
+    ordering = ['-updated_at']
+
+    def perform_create(self, serializer):
+
+        serializer.save(customer_user=self.request.user)
+
+    def destroy(self, request, *args, **kwargs):
+
+        instance = self.get_object()
+        self.perform_destroy(instance)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    
+
+class BaseInfoView(generics.ListAPIView):
+
+    queryset = UserProfile.objects.all()
+    serializer_class = UserProfile
+
+    def _calculate_average_rating(self):
+
+        ratings = Reviews.objects.values_list('rating', flat=True)
+        total_ratings = ratings.count()
+        if total_ratings == 0:
+            return 0
+        
+        return round(sum(ratings) / total_ratings, 1)
+
+    def list(self, request):
+
+        business_profile_count = UserProfile.objects.filter(type='business').count()
+        review_count = Reviews.objects.count()
+        offer_count = Offers.objects.count()
+        average_rating = self._calculate_average_rating()
+
+        return Response({
+            'business_profile_count': business_profile_count,
+            'review_count': review_count,
+            'offer_count': offer_count,
+            'average_rating': average_rating
+        })
