@@ -171,3 +171,53 @@ class BaseInfoView(generics.ListAPIView):
             'offer_count': offer_count,
             'average_rating': average_rating
         })
+
+class OrdersViewSet(viewsets.ModelViewSet):
+
+    permission_classes = [OrderAccessPermission]
+    serializer_class = OrdersSerializer
+    queryset = Orders.objects.all()
+
+    def get_queryset(self):
+
+        user = self.request.user
+        if user.user_profile.type == 'staff':
+            return Orders.objects.all()
+        else:
+            customer_orders = Orders.objects.filter(customer_user=user)
+            business_orders = Orders.objects.filter(business_user=user)
+            return customer_orders | business_orders
+
+    def perform_create(self, serializer):
+
+        offer_detail_id = self.request.data.get('offer_detail_id')
+
+        try:
+            offer_detail = OfferDetails.objects.get(id=offer_detail_id)
+            offer = offer_detail.offer
+            customer_user = self.request.user
+            business_user = offer.user
+
+            serializer.save(
+                customer_user=customer_user,
+                business_user=business_user,
+                offer=offer,
+                offer_details=offer_detail,
+                title=offer.title,
+                revisions=offer_detail.revisions,
+                delivery_time_in_days=offer_detail.delivery_time_in_days,
+                price=offer_detail.price,
+                features=offer_detail.features,
+                offer_type=offer_detail.offer_type,
+                status='in_progress'
+            )
+
+        except OfferDetails.DoesNotExist:
+            raise ValueError('Invalid offer_detail_id')
+        
+    def create(self, request, *args, **kwargs):
+
+        try:
+            return super().create(request, *args, **kwargs)
+        except ValueError as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
