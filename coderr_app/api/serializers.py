@@ -156,3 +156,31 @@ class OffersSerializer(serializers.ModelSerializer):
             'last_name': obj.user.last_name,
             'username': obj.user.username,
         }
+
+class OrdersSerializer(serializers.ModelSerializer):
+
+    title = serializers.CharField(source='offer.title', required=False)
+    revisions = serializers.IntegerField(source='offer_details.revisions', required=False)
+    delivery_time_in_days = serializers.IntegerField(source='offer_details.delivery_time_in_days', required=False)
+    price = serializers.DecimalField(max_digits=10, decimal_places=2, source='offer_details.price', required=False)
+    features= serializers.JSONField(source='offer_details.features', required=False)
+    offer_type = serializers.CharField(source='offer_details.offer_type', required=False)
+
+    class Meta:
+        model = Orders
+        fields = [
+            'id', 'customer_user', 'business_user', 'title', 'revisions', 'delivery_time_in_days', 
+            'price', 'features', 'offer_type', 'status', 'created_at', 'updated_at'
+        ]
+
+        extra_kwargs = {
+            'customer_user': {'read_only': True},
+            'business_user': {'read_only': True},
+            'title': {'read_only': True},
+            'revisions': {'read_only': True},
+            'delivery_time_in_days': {'read_only': True},
+            'price': {'read_only': True},
+            'features': {'read_only': True},
+            'offer_type': {'read_only': True},
+            'status': {'required': False},
+        }
