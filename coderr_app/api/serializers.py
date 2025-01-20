@@ -184,3 +184,16 @@ class OrdersSerializer(serializers.ModelSerializer):
             'offer_type': {'read_only': True},
             'status': {'required': False},
         }
+
+class ReviewsSerializer(serializers.ModelSerializer):
+
+    reviewer = serializers.PrimaryKeyRelatedField(source='customer_user', read_only=True)
+    class Meta:
+        model = Reviews
+        fields = ['id', 'business_user', 'reviewer', 'rating', 'description', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at', 'customer_user']
+
+    def create(self, validated_data):
+        customer_user = validated_data.pop('customer_user')
+        review = Reviews.objects.create(customer_user=customer_user, **validated_data)
+        return review
