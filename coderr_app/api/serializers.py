@@ -90,3 +90,18 @@ class CustomerProfileDetailSerializer(UserProfileDetailSerializer):
     class Meta:
         model = UserProfile
         fields = ['user', 'file', 'created_at', 'type']
+
+class OfferDetailsSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = OfferDetails
+        fields = ['id', 'url', 'title', 'revisions', 'delivery_time_in_days', 'price', 'features', 'offer_type']
+
+    def to_representation(self, instance):
+
+        representation = super().to_representation(instance)
+        representation['url'] = f'/offerdetails/{instance.id}/'
+
+        representation['price'] = float(instance.price)
+        
+        return representation
