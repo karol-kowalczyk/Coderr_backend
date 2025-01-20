@@ -84,3 +84,9 @@ class UserProfileDetailSerializer(serializers.ModelSerializer):
                 representation['file'] = None
         
         return representation
+
+class CustomerProfileDetailSerializer(UserProfileDetailSerializer):
+
+    class Meta:
+        model = UserProfile
+        fields = ['user', 'file', 'created_at', 'type']
