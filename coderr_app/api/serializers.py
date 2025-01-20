@@ -148,3 +148,11 @@ class OffersSerializer(serializers.ModelSerializer):
                 OfferDetails.objects.create(offer=instance, **detail)
 
         return instance
+
+    def get_user_details(self, obj):
+
+        return {
+            'first_name': obj.user.first_name,
+            'last_name': obj.user.last_name,
+            'username': obj.user.username,
+        }
