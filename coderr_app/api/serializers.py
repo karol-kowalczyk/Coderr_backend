@@ -105,3 +105,46 @@ class OfferDetailsSerializer(serializers.ModelSerializer):
         representation['price'] = float(instance.price)
         
         return representation
+
+class OffersSerializer(serializers.ModelSerializer):
+   
+    details = OfferDetailsSerializer(many=True)
+    min_price = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
+    min_delivery_time = serializers.IntegerField(read_only=True)
+    max_delivery_time = serializers.IntegerField(read_only=True)
+    user_details = serializers.SerializerMethodField()
+    # user = serializers.HiddenField(default=serializers.CurrentUserDefault())
+    user = serializers.PrimaryKeyRelatedField(read_only=True)
+
+    class Meta:
+        model = Offers
+        fields = ['id', 'user', 'title', 'image', 'description', 'created_at', 'updated_at', 'details', 'min_delivery_time', 'min_price', 'user_details', 'max_delivery_time']
+
+    def create(self, validated_data):
+       
+        details_data = validated_data.pop('details')
+        validated_data['user'] = self.context['request'].user
+        offer = Offers.objects.create(**validated_data)
+
+        for detail in details_data:
+            if 'price' not in detail:
+                raise serializers.ValidationError({'details': ['Jedes Detail muss einen Preis haben!']})
+            OfferDetails.objects.create(offer=offer, **detail)
+
+        return offer
+    
+    def update(self, instance, validated_data):
+       
+        details_data = validated_data.pop('details', None)
+        instance.title = validated_data.get('title', instance.title)
+        instance.image = validated_data.get('image', instance.image)
+        instance.description = validated_data.get('description', instance.description)
+        instance.save()
+
+        if details_data:
+            instance.details.all().delete()
+
+            for detail in details_data:
+                OfferDetails.objects.create(offer=instance, **detail)
+
+        return instance
