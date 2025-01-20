@@ -33,18 +33,7 @@ class Offers(models.Model):
         verbose_name_plural = 'Offers'
 
 class OfferDetails(models.Model):
-    """
-    Details eines spezifischen Angebots, z. B. Preis und Typ.
-
-    Attributes:
-        offer (Offers): Referenz auf das zugehörige Angebot.
-        title (str): Titel des Angebotsdetails, max. 150 Zeichen.
-        revisions (int): Anzahl der zulässigen Überarbeitungen, Standard: -1 (unbegrenzt).
-        delivery_time_in_days (int): Lieferzeit in Tagen.
-        price (DecimalField): Preis für dieses Detailpaket.
-        features (JSONField): JSON-Daten für spezifische Merkmale oder Eigenschaften.
-        offer_type (str): Typ des Angebotsdetails, entweder 'basic', 'standard' oder 'premium'.
-    """
+   
     offer = models.ForeignKey(Offers, on_delete=models.CASCADE, related_name='details')
     title = models.CharField(max_length=150)
     revisions = models.IntegerField(default=-1)
@@ -64,3 +53,26 @@ class OfferDetails(models.Model):
     class Meta:
         ordering = ['title']
         verbose_name_plural = 'Offerdetails'
+
+class Orders(models.Model):
+   
+    customer_user = models.ForeignKey(User, related_name='customer_order', on_delete=models.CASCADE, limit_choices_to={'user_profile__type': 'customer'})
+    business_user = models.ForeignKey(User, related_name='business_order', on_delete=models.CASCADE, limit_choices_to={'user_profile__type': 'business'})
+    offer = models.ForeignKey('Offers', on_delete=models.CASCADE, related_name='orders')
+    offer_details = models.ForeignKey('OfferDetails', on_delete=models.CASCADE, related_name='orders')
+    title = models.CharField(max_length=150)
+    revisions = models.IntegerField()
+    delivery_time_in_days = models.PositiveIntegerField()
+    price = models.DecimalField(max_digits=10, decimal_places=2)
+    features = models.JSONField()
+    offer_type = models.CharField(max_length=50)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    status = models.CharField(max_length=25)
+
+    def __str__(self):
+        return f'Order by {self.customer_user.username} for {self.title}'
+    
+    class Meta:
+        ordering = ['title']
+        verbose_name_plural = 'Orders'
