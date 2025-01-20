@@ -1,63 +1,36 @@
+from rest_framework import generics, viewsets, filters, status
+from coderr_app.models import UserProfile, OfferDetails, Offers, Orders, User, Reviews
+from .serializers import UserProfileSerializer, OfferDetailsSerializer, OffersSerializer, OrdersSerializer, UserProfileDetailSerializer, ReviewsSerializer, CustomerProfileDetailSerializer
+from rest_framework.permissions import IsAuthenticated
+from .permissions import IsObjectOwnerOrAdminPermission, IsBusinessOrAdminPermission, IsCustomerReadOnlyPermission, OrderAccessPermission, IsReviewerOrAdminPermission
+from .paginations import LargeResultsSetPagination
+from django_filters.rest_framework import DjangoFilterBackend
+from django.db.models import Min, Subquery, OuterRef
+import django_filters
+from rest_framework.response import Response
 from rest_framework.views import APIView
 
-class UserProfileDetailView(generics.RetrieveUpdateAPIView):
 
+class UserProfileDetailView(generics.RetrieveUpdateAPIView):
+  
     permission_classes = [IsObjectOwnerOrAdminPermission | IsCustomerReadOnlyPermission]
 
     queryset = UserProfile.objects.all()
     serializer_class = UserProfileSerializer
 
-class OfferDetailsViewSet(viewsets.ModelViewSet):
-
-    permission_classes = [IsAuthenticated]
-    serializer_class = OfferDetailsSerializer
-    queryset = OfferDetails.objects.all()
-
-class InProgressOrderCountView(APIView):
-
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request, business_user_id, *args, **kwargs):
-      
-        if not User.objects.filter(id=business_user_id, user_profile__type='business').exists():
-            return Response({'error': 'Business user not found.'}, status.HTTP_400_BAD_REQUEST)
-
-        in_progress_count = Orders.objects.filter(
-            business_user_id=business_user_id,
-            status='in_progress'
-        ).count()
-
-        return Response({'order_count': in_progress_count})
-    
-class CompletedOrderCountView(APIView):
-
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request, business_user_id, *args, **kwargs):
-
-        if not User.objects.filter(id=business_user_id, user_profile__type='business').exists():
-            return Response({'error': 'Business user not found.'}, status.HTTP_400_BAD_REQUEST)
-
-        completed_count = Orders.objects.filter(
-            business_user_id=business_user_id,
-            status='completed'
-        ).count()
-
-        return Response({'completed_order_count': completed_count})
-
     
 class BusinessProfilesViewSet(viewsets.ModelViewSet):
-
+   
     permission_classes = [IsAuthenticated]
     serializer_class = UserProfileDetailSerializer
 
     def get_queryset(self):
-
+ 
         return UserProfile.objects.filter(type='business')
     
 
 class CustomerProfilesViewSet(viewsets.ModelViewSet):
-
+   
     permission_classes = [IsAuthenticated]
     serializer_class = CustomerProfileDetailSerializer
 
@@ -67,7 +40,9 @@ class CustomerProfilesViewSet(viewsets.ModelViewSet):
     
 
 class OfferFilter(django_filters.FilterSet):
-
+    
+    max_delivery_time = django_filters.NumberFilter(method='filter_by_max_delivery_time')
+    creator_id = django_filters.NumberFilter(field_name='user__id')
 
     class Meta:
         model = Offers
@@ -79,7 +54,7 @@ class OfferFilter(django_filters.FilterSet):
      
 
 class OffersViewSet(viewsets.ModelViewSet):
-
+   
     permission_classes = [IsBusinessOrAdminPermission]
     serializer_class = OffersSerializer
     queryset = Offers.objects.all()
@@ -113,73 +88,21 @@ class OffersViewSet(viewsets.ModelViewSet):
         )
 
 
-class ReviewsFilter(django_filters.FilterSet):
-
-    business_user_id = django_filters.NumberFilter(field_name='business_user__id')
-    reviewer_id = django_filters.NumberFilter(field_name='customer_user__id')
-
-    class Meta:
-        model = Reviews
-        fields = ['business_user_id', 'reviewer_id']
-
-
-class ReviewsViewSet(viewsets.ModelViewSet):
-
-    permission_classes = [IsReviewerOrAdminPermission]
-    serializer_class = ReviewsSerializer
-    queryset = Reviews.objects.all()
-    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
-    filterset_class = ReviewsFilter
-    ordering_fields = ['updated_at', 'rating']
-    ordering = ['-updated_at']
-
-    def perform_create(self, serializer):
-
-        serializer.save(customer_user=self.request.user)
-
-    def destroy(self, request, *args, **kwargs):
-
-        instance = self.get_object()
-        self.perform_destroy(instance)
-        return Response(status=status.HTTP_204_NO_CONTENT)
+class OfferDetailsViewSet(viewsets.ModelViewSet):
     
+    permission_classes = [IsAuthenticated]
+    serializer_class = OfferDetailsSerializer
+    queryset = OfferDetails.objects.all()
 
-class BaseInfoView(generics.ListAPIView):
-
-    queryset = UserProfile.objects.all()
-    serializer_class = UserProfile
-
-    def _calculate_average_rating(self):
-
-        ratings = Reviews.objects.values_list('rating', flat=True)
-        total_ratings = ratings.count()
-        if total_ratings == 0:
-            return 0
-        
-        return round(sum(ratings) / total_ratings, 1)
-
-    def list(self, request):
-
-        business_profile_count = UserProfile.objects.filter(type='business').count()
-        review_count = Reviews.objects.count()
-        offer_count = Offers.objects.count()
-        average_rating = self._calculate_average_rating()
-
-        return Response({
-            'business_profile_count': business_profile_count,
-            'review_count': review_count,
-            'offer_count': offer_count,
-            'average_rating': average_rating
-        })
 
 class OrdersViewSet(viewsets.ModelViewSet):
-
+  
     permission_classes = [OrderAccessPermission]
     serializer_class = OrdersSerializer
     queryset = Orders.objects.all()
 
     def get_queryset(self):
-
+       
         user = self.request.user
         if user.user_profile.type == 'staff':
             return Orders.objects.all()
@@ -189,7 +112,7 @@ class OrdersViewSet(viewsets.ModelViewSet):
             return customer_orders | business_orders
 
     def perform_create(self, serializer):
-
+       
         offer_detail_id = self.request.data.get('offer_detail_id')
 
         try:
@@ -216,8 +139,102 @@ class OrdersViewSet(viewsets.ModelViewSet):
             raise ValueError('Invalid offer_detail_id')
         
     def create(self, request, *args, **kwargs):
-
+      
         try:
             return super().create(request, *args, **kwargs)
         except ValueError as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        
+
+class InProgressOrderCountView(APIView):
+   
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, business_user_id, *args, **kwargs):
+
+        if not User.objects.filter(id=business_user_id, user_profile__type='business').exists():
+            return Response({'error': 'Business user not found.'}, status.HTTP_400_BAD_REQUEST)
+
+        in_progress_count = Orders.objects.filter(
+            business_user_id=business_user_id,
+            status='in_progress'
+        ).count()
+
+        return Response({'order_count': in_progress_count})
+    
+
+class CompletedOrderCountView(APIView):
+  
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, business_user_id, *args, **kwargs):
+       
+        if not User.objects.filter(id=business_user_id, user_profile__type='business').exists():
+            return Response({'error': 'Business user not found.'}, status.HTTP_400_BAD_REQUEST)
+
+        completed_count = Orders.objects.filter(
+            business_user_id=business_user_id,
+            status='completed'
+        ).count()
+
+        return Response({'completed_order_count': completed_count})
+    
+
+class ReviewsFilter(django_filters.FilterSet):
+   
+    business_user_id = django_filters.NumberFilter(field_name='business_user__id')
+    reviewer_id = django_filters.NumberFilter(field_name='customer_user__id')
+
+    class Meta:
+        model = Reviews
+        fields = ['business_user_id', 'reviewer_id']
+
+
+class ReviewsViewSet(viewsets.ModelViewSet):
+   
+    permission_classes = [IsReviewerOrAdminPermission]
+    serializer_class = ReviewsSerializer
+    queryset = Reviews.objects.all()
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
+    filterset_class = ReviewsFilter
+    ordering_fields = ['updated_at', 'rating']
+    ordering = ['-updated_at']
+
+    def perform_create(self, serializer):
+
+        serializer.save(customer_user=self.request.user)
+
+    def destroy(self, request, *args, **kwargs):
+
+        instance = self.get_object()
+        self.perform_destroy(instance)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    
+
+class BaseInfoView(generics.ListAPIView):
+    
+    queryset = UserProfile.objects.all()
+    serializer_class = UserProfile
+
+    def _calculate_average_rating(self):
+       
+        ratings = Reviews.objects.values_list('rating', flat=True)
+        total_ratings = ratings.count()
+        if total_ratings == 0:
+            return 0
+        
+        return round(sum(ratings) / total_ratings, 1)
+
+    def list(self, request):
+
+        business_profile_count = UserProfile.objects.filter(type='business').count()
+        review_count = Reviews.objects.count()
+        offer_count = Offers.objects.count()
+        average_rating = self._calculate_average_rating()
+
+        return Response({
+            'business_profile_count': business_profile_count,
+            'review_count': review_count,
+            'offer_count': offer_count,
+            'average_rating': average_rating
+        })
