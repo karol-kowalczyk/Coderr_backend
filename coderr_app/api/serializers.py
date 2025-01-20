@@ -1,4 +1,6 @@
 from rest_framework import serializers
+from coderr_app.models import UserProfile, OfferDetails, Offers, Orders, Reviews
+from django.contrib.auth.models import User
 
 class UserProfileSerializer(serializers.ModelSerializer):
 
@@ -45,3 +47,14 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
         return instance
     
+class UserSerializer(serializers.ModelSerializer):
+
+    file = serializers.SerializerMethodField()
+    class Meta:
+        model = User
+        fields = ['pk', 'username', 'first_name', 'last_name', 'file']
+
+    def get_file(self, obj):
+
+        user_profile = UserProfile.objects.filter(user=obj).first()
+        return user_profile.file.url if user_profile and user_profile.file else None
