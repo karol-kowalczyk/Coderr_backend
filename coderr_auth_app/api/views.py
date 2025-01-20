@@ -17,7 +17,7 @@ class UserRegistrationView(APIView):
 
 class LoginView(ObtainAuthToken):
 
-    permission_classes = [AllowAny]
+
 
     def post(self, request, *arg, **kwarg):
         username = request.data.get('username')
